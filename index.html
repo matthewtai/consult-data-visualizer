@@ -120,6 +120,18 @@
             font-weight: 500;
             cursor: pointer;
         }
+
+        /* Color indicator for month legend */
+        .color-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 6px;
+            margin-left: 8px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            flex-shrink: 0;
+        }
         .control-buttons-row {
             display: flex;
             gap: 15px;
@@ -716,6 +728,55 @@
                         .remove()
                 );
 
+            // Add month labels at the end of lines
+            const monthLabels = svg.selectAll(".month-label")
+                .data(dataToDisplay, d => d.monthYear)
+                .join(
+                    enter => {
+                        const labels = enter.append("text")
+                            .attr("class", "month-label")
+                            .style("font-size", "10px")
+                            .style("font-weight", "500")
+                            .style("fill", d => color(d.monthYear))
+                            .style("opacity", 0);
+                        
+                        labels.each(function(d) {
+                            // Find the last point with count > 0
+                            const lastPoint = d.data.filter(point => point.count > 0).pop();
+                            if (lastPoint) {
+                                d3.select(this)
+                                    .attr("x", x(lastPoint.date) + 8)
+                                    .attr("y", y(lastPoint.count) + 4)
+                                    .text(d.monthYear);
+                            }
+                        });
+                        
+                        return labels.transition()
+                            .duration(500)
+                            .style("opacity", 1);
+                    },
+                    update => {
+                        update.each(function(d) {
+                            // Find the last point with count > 0
+                            const lastPoint = d.data.filter(point => point.count > 0).pop();
+                            if (lastPoint) {
+                                d3.select(this)
+                                    .transition()
+                                    .duration(500)
+                                    .attr("x", x(lastPoint.date) + 8)
+                                    .attr("y", y(lastPoint.count) + 4)
+                                    .text(d.monthYear);
+                            }
+                        });
+                        return update;
+                    },
+                    exit => exit
+                        .transition()
+                        .duration(500)
+                        .style("opacity", 0)
+                        .remove()
+                );
+
             // Tooltip setup
             const tooltip = d3.select("body").append("div")
                 .attr("class", "tooltip");
@@ -786,6 +847,10 @@
             toggleContainer.html("");
             toggleContainer.append("h3").text("Filter by Month:").style("margin-bottom", "15px").style("color", "#333").style("font-size", "1.1rem");
 
+            // Use the same color scale as the chart
+            const color = d3.scaleOrdinal(d3.schemeCategory10)
+                .domain(months);
+
             months.forEach(month => {
                 const item = toggleContainer.append("label")
                     .attr("class", "checkbox-item");
@@ -803,6 +868,11 @@
                         }
                         updateChartBasedOnToggles();
                     });
+
+                // Add color indicator
+                item.append("span")
+                    .attr("class", "color-indicator")
+                    .style("background-color", color(month));
 
                 item.append("label")
                     .attr("for", `toggle-${month.replace(/\s/g, '-')}`)
