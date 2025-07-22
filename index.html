@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Aggregate Count Chart</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Roboto", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 30px;
+            margin-bottom: 20px;
+            max-width: 90%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .chart-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .chart-container, .chart-controls {
+            display: none;
+            width: 100%;
+            max-width: 900px;
+            margin-top: 20px;
+        }
+        .chart-container {
+            height: 500px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        svg {
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: visible;
+        }
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #d1d5db;
+            shape-rendering: crispEdges;
+        }
+        .axis text {
+            font-size: 0.9rem;
+            fill: #6b7280;
+        }
+        .line {
+            fill: none;
+            stroke-width: 2.5px;
+            transition: stroke 0.3s ease;
+        }
+        .dot {
+            fill: #fff;
+            stroke-width: 1.5px;
+            transition: stroke 0.3s ease, fill 0.3s ease;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 25px;
+            justify-content: center;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s ease;
+        }
+        .checkbox-item:hover {
+            background-color: #edf2f7;
+            border-color: #cbd5e0;
+        }
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 8px;
+            accent-color: #4f46e5;
+        }
+        .checkbox-item label {
+            font-size: 0.95rem;
+            color: #374151;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .control-buttons-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+            width: 100%;
+        }
+        .control-button {
+            background-color: #4f46e5;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .control-button:hover {
+            background-color: #4338ca;
+            transform: translateY(-1px);
+        }
+        .control-button:active {
+            background-color: #3730a3;
+            transform: translateY(0);
+        }
+
+        /* Smaller control buttons */
+        .control-buttons-row-small {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0 20px 0;
+            justify-content: center;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+        .control-button-small {
+            background-color: #6b7280;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        .control-button-small:hover {
+            background-color: #4f46e5;
+            transform: translateY(-1px);
+        }
+        .control-button-small:active {
+            background-color: #3730a3;
+            transform: translateY(0);
+        }
+
+        /* Landing page specific styles */
+        #landing-page {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        #submit-data-button {
+            background-color: #10b981;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        #submit-data-button:hover {
+            background-color: #059669;
+            transform: translateY(-1px);
+        }
+        #submit-data-button:active {
+            background-color: #047857;
+            transform: translateY(0);
+        }
+        .instructions {
+            font-size: 0.95rem;
+            color: #6b7280;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        /* File input styling */
+        #csv-file-input {
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+        #csv-file-input:hover {
+            border-color: #4f46e5;
+            background-color: #edf2f7;
+        }
+        #csv-file-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            .chart-title {
+                font-size: 1.5rem;
+                margin-bottom: 20px;
+            }
+            .chart-container {
+                height: 400px;
+            }
+            .axis text {
+                font-size: 0.8rem;
+            }
+            .checkbox-group {
+                gap: 10px;
+            }
+            .checkbox-item {
+                padding: 6px 10px;
+            }
+            .checkbox-item label {
+                font-size: 0.9rem;
+            }
+            .control-buttons-row {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+            .control-button {
+                width: 100%;
+                max-width: 200px;
+            }
+            .control-buttons-row-small {
+                gap: 8px;
+                margin: 8px 0 15px 0;
+            }
+            .control-button-small {
+                padding: 5px 10px;
+                font-size: 0.8rem;
+            }
+            #landing-page {
+                padding: 20px;
+            }
+            .instructions {
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            .chart-title {
+                font-size: 1.3rem;
+                margin-bottom: 15px;
+            }
+            .chart-container {
+                height: 300px;
+            }
+            .axis text {
+                font-size: 0.75rem;
+            }
+            .checkbox-group {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .control-buttons-row-small {
+                gap: 6px;
+                margin: 6px 0 12px 0;
+                flex-direction: column;
+                align-items: center;
+            }
+            .control-button-small {
+                padding: 4px 8px;
+                font-size: 0.75rem;
+                width: 100%;
+                max-width: 180px;
+            }
+            .instructions {
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="landing-page">
+            <h1 class="chart-title">Load Your Reaction Data</h1>
+            <p class="instructions">
+                Please upload your CSV file. The system will automatically extract the "Reacted at Date+Time" column and display the chart.
+            </p>
+            <div id="file-upload-container" style="display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%;">
+                <input type="file" id="csv-file-input" accept=".csv" style="
+                    padding: 10px;
+                    border: 2px dashed #d1d5db;
+                    border-radius: 8px;
+                    background-color: #f9fafb;
+                    cursor: pointer;
+                    transition: border-color 0.2s ease;
+                    width: 100%;
+                    max-width: 400px;
+                    text-align: center;
+                ">
+                <div id="file-info" style="color: #6b7280; font-size: 0.9rem; text-align: center;"></div>
+            </div>
+            <button id="submit-data-button">Process CSV and Display Chart</button>
+        </div>
+
+        <div class="chart-controls">
+            <h1 class="chart-title">Daily Cumulative Reaction Counts by Month</h1>
+            <div class="control-buttons-row-small">
+                <button id="selectAllMonths" class="control-button-small">Select All Months</button>
+                <button id="deselectAllMonths" class="control-button-small">Deselect All Months</button>
+                <button id="selectAllSources" class="control-button-small">Select All Sources</button>
+                <button id="deselectAllSources" class="control-button-small">Deselect All Sources</button>
+            </div>
+        </div>
+
+        <div id="chart" class="chart-container"></div>
+        <div id="month-toggles" class="chart-controls checkbox-group">
+            <h3 style="margin-bottom: 15px; color: #333; font-size: 1.1rem;">Filter by Month:</h3>
+        </div>
+        <div id="source-toggles" class="chart-controls checkbox-group">
+            <h3 style="margin-bottom: 15px; color: #333; font-size: 1.1rem;">Filter by Source:</h3>
+        </div>
+    </div>
+
+    <script>
+        // Set up dimensions and margins for the chart
+        const margin = { top: 40, right: 60, bottom: 60, left: 70 };
+        const chartWidth = 900 - margin.left - margin.right;
+        const chartHeight = 500 - margin.top - margin.bottom;
+
+        let processedChartData = [];
+        let allUniqueMonths = [];
+        let allUniqueSources = [];
+        let selectedMonths = new Set();
+        let selectedSources = new Set();
+
+        // CSV Parser function to handle quoted fields properly
+        function parseCSV(text) {
+            const lines = text.split('\n');
+            const result = [];
+            
+            for (let line of lines) {
+                if (line.trim() === '') continue;
+                
+                const row = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        row.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                
+                row.push(current.trim());
+                result.push(row);
+            }
+            
+            return result;
+        }
+
+        // Function to process raw date strings into aggregated daily counts per month
+        function processData(rawData) {
+            // Robust cleanDateString function with consistent regex
+            const cleanDateString = (dateStr) => {
+                // Updated regex to handle optional whitespace and consistent pattern
+                const parts = dateStr.match(/([A-Za-z]+)\s+(\d+)(?:st|nd|rd|th)?,\s*(\d+)\s+at\s+(\d+):(\d+)\s+(AM|PM)\s+([A-Z]{3})/);
+                if (!parts) {
+                    console.warn("Regex failed to match date string:", dateStr);
+                    return null;
+                }
+
+                const [, monthName, day, year, hour12, minute, ampm] = parts;
+
+                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                const monthNum = monthNames.indexOf(monthName);
+
+                if (monthNum === -1) {
+                    console.warn("Invalid month name:", monthName);
+                    return null;
+                }
+
+                let hour24 = parseInt(hour12, 10);
+                if (ampm === "PM" && hour24 < 12) {
+                    hour24 += 12;
+                } else if (ampm === "AM" && hour24 === 12) {
+                    hour24 = 0;
+                }
+
+                return `${year}-${String(monthNum + 1).padStart(2, '0')}-${String(day).padStart(2, '0')} ${String(hour24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            };
+
+            const parseTime = d3.timeParse("%Y-%m-%d %H:%M");
+            const dailyCounts = new Map();
+
+            // Process each data item (now has date and source)
+            rawData.forEach(item => {
+                const cleanedDate = typeof item === 'string' ? cleanDateString(item) : cleanDateString(item.date);
+                const source = typeof item === 'string' ? 'Unknown' : item.source;
+                
+                if (cleanedDate) {
+                    const parsedDate = parseTime(cleanedDate);
+                    if (parsedDate) {
+                        const dateKey = d3.timeFormat("%Y-%m-%d")(parsedDate);
+                        const dayKey = `${dateKey}-${source}`;
+                        
+                        if (!dailyCounts.has(dateKey)) {
+                            dailyCounts.set(dateKey, new Map());
+                        }
+                        
+                        const dayMap = dailyCounts.get(dateKey);
+                        dayMap.set(source, (dayMap.get(source) || 0) + 1);
+                    } else {
+                        console.warn("D3 could not parse cleaned date string:", cleanedDate, "Original:", item);
+                    }
+                }
+            });
+
+            const monthlyData = new Map();
+
+            dailyCounts.forEach((sourceCounts, dateKey) => {
+                const date = d3.timeParse("%Y-%m-%d")(dateKey);
+                if (date) {
+                    const monthYearKey = d3.timeFormat("%B %Y")(date);
+                    const dayOfMonth = date.getDate();
+
+                    if (!monthlyData.has(monthYearKey)) {
+                        monthlyData.set(monthYearKey, new Map());
+                    }
+                    
+                    const monthMap = monthlyData.get(monthYearKey);
+                    if (!monthMap.has(dayOfMonth)) {
+                        monthMap.set(dayOfMonth, new Map());
+                    }
+                    
+                    const dayMap = monthMap.get(dayOfMonth);
+                    sourceCounts.forEach((count, source) => {
+                        dayMap.set(source, (dayMap.get(source) || 0) + count);
+                    });
+                } else {
+                    console.warn("Could not re-parse dateKey:", dateKey);
+                }
+            });
+
+            // Process data for cumulative counts and ensure all days are present
+            const allProcessedData = Array.from(monthlyData).map(([monthYear, dayData]) => {
+                const sortedDays = Array.from(dayData.keys()).sort((a, b) => a - b);
+                const sourceCumulatives = new Map();
+
+                const fullMonthData = [];
+
+                for (let i = 1; i <= 31; i++) {
+                    const day = i;
+                    const daySourceData = dayData.get(day) || new Map();
+                    
+                    const dayTotalCount = Array.from(daySourceData.values()).reduce((sum, count) => sum + count, 0);
+                    
+                    // Update cumulative counts for each source
+                    daySourceData.forEach((count, source) => {
+                        sourceCumulatives.set(source, (sourceCumulatives.get(source) || 0) + count);
+                    });
+                    
+                    const totalCumulative = Array.from(sourceCumulatives.values()).reduce((sum, count) => sum + count, 0);
+                    
+                    const dummyDate = new Date(2000, 0, day);
+                    fullMonthData.push({
+                        date: dummyDate,
+                        dayOfMonth: day,
+                        count: totalCumulative,
+                        dailyCount: dayTotalCount,
+                        sourceCounts: new Map(sourceCumulatives), // Copy of cumulative counts by source
+                        dailySourceCounts: new Map(daySourceData) // Daily counts by source
+                    });
+                }
+                return {
+                    monthYear: monthYear,
+                    data: fullMonthData
+                };
+            });
+
+            // Sort months chronologically
+            allProcessedData.sort((a, b) => {
+                const dateA = new Date(a.monthYear.replace(/(\w+) (\d+)/, "$1 1, $2"));
+                const dateB = new Date(b.monthYear.replace(/(\w+) (\d+)/, "$1 1, $2"));
+                return dateA - dateB;
+            });
+
+            return allProcessedData;
+        }
+
+        // Function to draw or update the chart
+        function drawChart(dataToDisplay) {
+            d3.select("#chart svg").remove();
+            d3.select(".tooltip").remove();
+
+            const svg = d3.select("#chart")
+                .append("svg")
+                .attr("width", chartWidth + margin.left + margin.right)
+                .attr("height", chartHeight + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleTime()
+                .domain([new Date(2000, 0, 1), new Date(2000, 0, 31)])
+                .range([0, chartWidth]);
+
+            const maxY = d3.max(dataToDisplay, month => d3.max(month.data, d => d.count)) || 0;
+            const y = d3.scaleLinear()
+                .domain([0, Math.max(maxY + 5, 10)])
+                .range([chartHeight, 0]);
+
+            const color = d3.scaleOrdinal(d3.schemeCategory10)
+                .domain(allUniqueMonths);
+
+            // Add X axis
+            svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", `translate(0,${chartHeight})`)
+                .call(d3.axisBottom(x).tickFormat(d3.timeFormat("%d")));
+
+            // Add X axis label
+            svg.append("text")
+                .attr("class", "x axis-label")
+                .attr("x", chartWidth / 2)
+                .attr("y", chartHeight + margin.bottom - 15)
+                .style("text-anchor", "middle")
+                .style("fill", "#333")
+                .style("font-size", "1rem")
+                .text("Day of the Month");
+
+            // Add Y axis
+            svg.append("g")
+                .attr("class", "y axis")
+                .call(d3.axisLeft(y).ticks(5).tickFormat(d3.format("d")));
+
+            // Add Y axis label
+            svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 0 - margin.left + 15)
+                .attr("x", 0 - (chartHeight / 2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .style("fill", "#333")
+                .style("font-size", "1rem")
+                .text("Cumulative Count");
+
+            const line = d3.line()
+                .x(d => x(d.date))
+                .y(d => y(d.count))
+                .defined(d => !isNaN(d.count));
+
+            // Add the lines for each month
+            const lines = svg.selectAll(".month-line")
+                .data(dataToDisplay, d => d.monthYear)
+                .join(
+                    enter => enter.append("path")
+                        .attr("class", "line month-line")
+                        .attr("d", d => line(d.data))
+                        .style("stroke", d => color(d.monthYear))
+                        .style("opacity", 0)
+                        .transition()
+                        .duration(500)
+                        .style("opacity", 1),
+                    update => update
+                        .transition()
+                        .duration(500)
+                        .attr("d", d => line(d.data))
+                        .style("stroke", d => color(d.monthYear)),
+                    exit => exit
+                        .transition()
+                        .duration(500)
+                        .style("opacity", 0)
+                        .remove()
+                );
+
+            // Add circles for data points
+            const circles = svg.selectAll(".month-dots")
+                .data(dataToDisplay, d => d.monthYear)
+                .join("g")
+                .attr("class", "month-dots")
+                .style("fill", d => color(d.monthYear));
+
+            circles.selectAll(".dot")
+                .data(d => d.data.filter(point => point.count > 0))
+                .join(
+                    enter => enter.append("circle")
+                        .attr("class", "dot")
+                        .attr("cx", d => x(d.date))
+                        .attr("cy", d => y(d.count))
+                        .attr("r", 4)
+                        .style("stroke", "currentColor")
+                        .style("opacity", 0)
+                        .transition()
+                        .duration(500)
+                        .style("opacity", 1),
+                    update => update
+                        .transition()
+                        .duration(500)
+                        .attr("cx", d => x(d.date))
+                        .attr("cy", d => y(d.count)),
+                    exit => exit
+                        .transition()
+                        .duration(500)
+                        .style("opacity", 0)
+                        .remove()
+                );
+
+            // Tooltip setup
+            const tooltip = d3.select("body").append("div")
+                .attr("class", "tooltip");
+
+            // Add overlay for tooltip interaction
+            svg.append("rect")
+                .attr("class", "overlay")
+                .attr("width", chartWidth)
+                .attr("height", chartHeight)
+                .style("fill", "none")
+                .style("pointer-events", "all")
+                .on("mousemove", function(event) {
+                    const [mx, my] = d3.pointer(event);
+                    
+                    // Better day calculation with bounds checking
+                    const dayFloat = (mx / chartWidth) * 30 + 1; // Map to 1-31 range
+                    let dayOfMonth = Math.round(Math.max(1, Math.min(31, dayFloat))); // Clamp between 1-31
+                    
+                    // Alternative: use the actual x scale but with better bounds checking
+                    // const dateX = x.invert(mx);
+                    // let dayOfMonth = Math.max(1, Math.min(31, Math.round(dateX.getDate())));
+
+                    let closestPoint = null;
+                    let closestMonth = null;
+                    let minDistance = Infinity;
+
+                    dataToDisplay.forEach(monthData => {
+                        // Find data point for this day
+                        const point = monthData.data.find(d => d.dayOfMonth === dayOfMonth);
+                        if (point && point.count >= 0) {
+                            const pointX = x(point.date);
+                            const pointY = y(point.count);
+                            
+                            // Calculate distance from mouse to point (both x and y)
+                            const distance = Math.sqrt(Math.pow(mx - pointX, 2) + Math.pow(my - pointY, 2));
+
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                closestPoint = point;
+                                closestMonth = monthData.monthYear;
+                            }
+                        }
+                    });
+
+                    // Only show tooltip if we're reasonably close to a data point
+                    if (closestPoint && minDistance < 50) { // 50px threshold
+                        tooltip.style("opacity", 1)
+                            .html(`
+                                <strong>${closestMonth}</strong><br/>
+                                Day ${closestPoint.dayOfMonth}<br/>
+                                Daily: ${closestPoint.dailyCount} reactions<br/>
+                                Cumulative: ${closestPoint.count} reactions
+                            `)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    } else {
+                        tooltip.style("opacity", 0);
+                    }
+                })
+                .on("mouseout", function() {
+                    tooltip.style("opacity", 0);
+                });
+        }
+
+        // Function to set up month toggle checkboxes
+        function setupMonthToggles(months) {
+            const toggleContainer = d3.select("#month-toggles");
+            toggleContainer.html("");
+            toggleContainer.append("h3").text("Filter by Month:").style("margin-bottom", "15px").style("color", "#333").style("font-size", "1.1rem");
+
+            months.forEach(month => {
+                const item = toggleContainer.append("label")
+                    .attr("class", "checkbox-item");
+
+                item.append("input")
+                    .attr("type", "checkbox")
+                    .attr("id", `toggle-${month.replace(/\s/g, '-')}`)
+                    .attr("value", month)
+                    .property("checked", true)
+                    .on("change", function() {
+                        if (this.checked) {
+                            selectedMonths.add(this.value);
+                        } else {
+                            selectedMonths.delete(this.value);
+                        }
+                        updateChartBasedOnToggles();
+                    });
+
+                item.append("label")
+                    .attr("for", `toggle-${month.replace(/\s/g, '-')}`)
+                    .text(month);
+
+                selectedMonths.add(month);
+            });
+        }
+
+        // Function to set up source toggle checkboxes
+        function setupSourceToggles(sources) {
+            const toggleContainer = d3.select("#source-toggles");
+            toggleContainer.html("");
+            toggleContainer.append("h3").text("Filter by Source:").style("margin-bottom", "15px").style("color", "#333").style("font-size", "1.1rem");
+            
+            sources.forEach(source => {
+                const item = toggleContainer.append("label")
+                    .attr("class", "checkbox-item");
+
+                item.append("input")
+                    .attr("type", "checkbox")
+                    .attr("id", `toggle-source-${source.replace(/\s/g, '-')}`)
+                    .attr("value", source)
+                    .property("checked", true)
+                    .on("change", function() {
+                        if (this.checked) {
+                            selectedSources.add(this.value);
+                        } else {
+                            selectedSources.delete(this.value);
+                        }
+                        updateChartBasedOnToggles();
+                    });
+
+                item.append("label")
+                    .attr("for", `toggle-source-${source.replace(/\s/g, '-')}`)
+                    .text(source);
+
+                selectedSources.add(source);
+            });
+        }
+
+        // Function to update chart based on selected months
+        function updateChartBasedOnToggles() {
+            // Filter by selected months first
+            const monthFilteredData = processedChartData.filter(d => selectedMonths.has(d.monthYear));
+            
+            // Then filter each month's data by selected sources
+            const filteredData = monthFilteredData.map(monthData => {
+                let runningCumulative = 0;
+                
+                const filteredDayData = monthData.data.map(dayData => {
+                    // Calculate daily count only for selected sources
+                    let filteredDailyCount = 0;
+                    
+                    // Sum daily counts for selected sources
+                    dayData.dailySourceCounts.forEach((count, source) => {
+                        if (selectedSources.has(source)) {
+                            filteredDailyCount += count;
+                        }
+                    });
+                    
+                    // Add to running cumulative
+                    runningCumulative += filteredDailyCount;
+                    
+                    return {
+                        ...dayData,
+                        count: runningCumulative,
+                        dailyCount: filteredDailyCount
+                    };
+                });
+                
+                return {
+                    ...monthData,
+                    data: filteredDayData
+                };
+            });
+            
+            drawChart(filteredData);
+        }
+
+        // Function to select all month checkboxes
+        function selectAllMonths() {
+            d3.selectAll("#month-toggles input[type='checkbox']")
+                .property("checked", true);
+            selectedMonths.clear();
+            allUniqueMonths.forEach(month => selectedMonths.add(month));
+            updateChartBasedOnToggles();
+        }
+
+        // Function to deselect all month checkboxes
+        function deselectAllMonths() {
+            d3.selectAll("#month-toggles input[type='checkbox']")
+                .property("checked", false);
+            selectedMonths.clear();
+            updateChartBasedOnToggles();
+        }
+
+        // Function to select all source checkboxes
+        function selectAllSources() {
+            d3.selectAll("#source-toggles input[type='checkbox']").filter(function() {
+                return this.type === 'checkbox' && this.id.startsWith('toggle-source-');
+            }).property("checked", true);
+            selectedSources.clear();
+            allUniqueSources.forEach(source => selectedSources.add(source));
+            updateChartBasedOnToggles();
+        }
+
+        // Function to deselect all source checkboxes
+        function deselectAllSources() {
+            d3.selectAll("#source-toggles input[type='checkbox']").filter(function() {
+                return this.type === 'checkbox' && this.id.startsWith('toggle-source-');
+            }).property("checked", false);
+            selectedSources.clear();
+            updateChartBasedOnToggles();
+        }
+
+        // Landing Page Logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const landingPage = d3.select("#landing-page");
+            const fileInput = d3.select("#csv-file-input");
+            const fileInfo = d3.select("#file-info");
+            const submitButton = d3.select("#submit-data-button");
+            const chartControls = d3.selectAll(".chart-controls");
+            const chartContainer = d3.select("#chart");
+
+            chartControls.style("display", "none");
+            chartContainer.style("display", "none");
+
+            fileInput.on("change", function() {
+                const file = this.files[0];
+                if (file) {
+                    fileInfo.text(`Selected file: ${file.name}`);
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const text = event.target.result;
+                        const parsedData = parseCSV(text);
+                        
+                        if (parsedData.length < 2) {
+                            alert("Error: CSV file appears to be empty or contains only headers.");
+                            fileInfo.text("CSV file is empty or invalid.");
+                            return;
+                        }
+                        
+                        const headers = parsedData[0];
+                        const dateColumnIndex = headers.indexOf('Reacted at Date+Time');
+                        const sourceColumnIndex = headers.indexOf('Source');
+
+                        if (dateColumnIndex === -1) {
+                            alert("Error: 'Reacted at Date+Time' column not found in the CSV file.");
+                            fileInfo.text("Please ensure the column name is exactly 'Reacted at Date+Time'.");
+                            return;
+                        }
+
+                        if (sourceColumnIndex === -1) {
+                            alert("Error: 'Source' column not found in the CSV file.");
+                            fileInfo.text("Please ensure the column name is exactly 'Source'.");
+                            return;
+                        }
+
+                        const rawData = parsedData.slice(1)
+                            .map(row => ({
+                                date: row[dateColumnIndex],
+                                source: row[sourceColumnIndex]
+                            }))
+                            .filter(item => item.date && item.source && item.source.trim() !== ''); // Filter out empty values
+
+                        if (rawData.length === 0) {
+                            alert("No data found in the 'Reacted at Date+Time' or 'Source' columns.");
+                            fileInfo.text("No data found in the 'Reacted at Date+Time' or 'Source' columns.");
+                            return;
+                        }
+
+                        fileInfo.text(`File loaded successfully! Found ${rawData.length} date entries.`);
+                        fileInfo.style("color", "#10b981");
+                    };
+                    reader.readAsText(file);
+                } else {
+                    fileInfo.text("");
+                }
+            });
+
+            submitButton.on("click", () => {
+                const file = fileInput.property("files")[0];
+                if (!file) {
+                    alert("Please select a CSV file first.");
+                    return;
+                }
+                
+                fileInfo.text("Processing CSV file...");
+                fileInfo.style("color", "#6b7280");
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const text = event.target.result;
+                    const parsedData = parseCSV(text);
+                    
+                    if (parsedData.length < 2) {
+                        alert("Error: CSV file appears to be empty or contains only headers.");
+                        fileInfo.text("CSV file is empty or invalid.");
+                        fileInfo.style("color", "#ef4444");
+                        return;
+                    }
+                    
+                    const headers = parsedData[0];
+                    const dateColumnIndex = headers.indexOf('Reacted at Date+Time');
+                    const sourceColumnIndex = headers.indexOf('Source');
+
+                    if (dateColumnIndex === -1) {
+                        alert("Error: 'Reacted at Date+Time' column not found in the CSV file.");
+                        fileInfo.text("Please ensure the column name is exactly 'Reacted at Date+Time'.");
+                        fileInfo.style("color", "#ef4444");
+                        return;
+                    }
+
+                    if (sourceColumnIndex === -1) {
+                        alert("Error: 'Source' column not found in the CSV file.");
+                        fileInfo.text("Please ensure the column name is exactly 'Source'.");
+                        fileInfo.style("color", "#ef4444");
+                        return;
+                    }
+
+                    const rawData = parsedData.slice(1)
+                        .map(row => ({
+                            date: row[dateColumnIndex],
+                            source: row[sourceColumnIndex]
+                        }))
+                        .filter(item => item.date && item.source && item.source.trim() !== ''); // Filter out empty values
+
+                    if (rawData.length === 0) {
+                        alert("No data found in the 'Reacted at Date+Time' or 'Source' columns.");
+                        fileInfo.text("No data found in the 'Reacted at Date+Time' or 'Source' columns.");
+                        fileInfo.style("color", "#ef4444");
+                        return;
+                    }
+
+                    processedChartData = processData(rawData);
+                    allUniqueMonths = processedChartData.map(d => d.monthYear);
+                    
+                    // Extract unique sources from raw data
+                    allUniqueSources = [...new Set(rawData.map(item => item.source))].sort();
+
+                    if (allUniqueMonths.length > 0) {
+                        landingPage.style("display", "none");
+                        chartControls.style("display", "flex");
+                        chartContainer.style("display", "flex");
+
+                        setupMonthToggles(allUniqueMonths);
+                        setupSourceToggles(allUniqueSources);
+                        updateChartBasedOnToggles();
+
+                        d3.select("#selectAllMonths").on("click", selectAllMonths);
+                        d3.select("#deselectAllMonths").on("click", deselectAllMonths);
+                        d3.select("#selectAllSources").on("click", selectAllSources);
+                        d3.select("#deselectAllSources").on("click", deselectAllSources);
+                    } else {
+                        alert("No valid date data found after processing. Please check your input format.");
+                        console.warn("No unique months found after processing data. Chart and toggles will not be displayed.");
+                        fileInfo.text("No valid date data found after processing.");
+                        fileInfo.style("color", "#ef4444");
+                    }
+                };
+                reader.readAsText(file);
+            });
+        });
+    </script>
+</body>
+</html> 
